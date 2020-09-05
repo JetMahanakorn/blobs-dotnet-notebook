@@ -1,0 +1,166 @@
+#!markdown
+
+# Creating & Downloading Blobs Using the Azure SDK for .NET
+
+#!markdown
+
+## Summary
+
+The newest Azure SDK for .NET includes include a client library that you can use to manage your Azure Blob Storage containers and blobs from C# code. In this guide, we will look at how you can get started with the latest version of this SDK.
+
+> This guide is based on the latest version ([12.6.0](https://www.nuget.org/packages/Azure.Storage.Blobs/12.6.0)) of the Azure Blob Storage client library. If you have worked with previous versions, some class and member names may have changed.
+
+#!markdown
+
+## Getting the `Azure.Storage.Blobs` Library from NuGet
+
+The **Azure.Storage.Blobs** client library is part of the Azure SDK for .NET and is available on [NuGet](https://www.nuget.org/packages/Azure.Storage.Blobs/12.6.0). To install this package in your .NET project, you can use the ``dotnet add package`` command from the command line:
+
+#!csharp
+
+#r "nuget:Azure.Storage.Blobs,12.6.0"
+
+#!markdown
+
+## Connecting to Azure Blob Storage
+
+The first thing you need to do in your application code is to add two using directives for the [Azure.Storage.Blobs](https://docs.microsoft.com/dotnet/api/azure.storage.blobs) and [Azure.Storage.Blobs.Models](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.models) namespaces:
+
+#!csharp
+
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+
+#!markdown
+
+Now that you are correctly referencing the SDK, you can create a new instances of the [BlobServiceClient](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobserviceclient) class and an Azure Blob Storage [connection string](https://docs.microsoft.com/azure/storage/common/storage-configure-connection-string) as the constructor's sole parameter:
+
+
+> If you are not sure of how to find your account's connection string, refer to the [Manage storage account access keys](https://docs.microsoft.com/azure/storage/common/storage-account-keys-manage) documentation page.
+
+#!csharp
+
+string connectionString = "UseDevelopmentStorage=true";
+BlobServiceClient client = new BlobServiceClient(connectionString);
+
+#!markdown
+
+## Getting the Container Client
+
+Now that you have a client that can connect to Azure Blob Storage, you can now get a client to reference a specific container.
+
+First you will need to get an instance of the [BlobContainerClient](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobcontainerclient) class by using the [GetBlobContainerClient](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobserviceclient.getblobcontainerclient) method of the BlobServiceClient class passing in the name of the container as a parameter:
+
+#!csharp
+
+BlobContainerClient container = client.GetBlobContainerClient("images");
+
+#!markdown
+
+Once you have your container client, you can asynchronously use the [CreateIfNotExistsAsync](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobcontainerclient.createifnotexistsasync) method of the BlobContainerClient class to create the container if it doesn't already exist:
+
+> Invoking the CreateIfNotExistsAsync method ensures that you never accidentally try to perform operations on a container that does not yet exist.
+
+#!csharp
+
+await container.CreateIfNotExistsAsync();
+
+#!markdown
+
+Now you have an instance of the container client that safely points to an existing container. This client is the key to most blob operations you wish to perform against your Azure Blob Storage account.
+
+#!markdown
+
+## Enumerating Blobs in the Container
+
+Using the container client, you can enumerate the existing blobs in the container asynchronously. To do this, we can use an asynchronous loop to iterate over the result of an invocation of the [GetBlobsAsync](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobcontainerclient.getblobsasync) method of the BlobContainerClient class:
+
+> Typically, enumerating multiple blobs requires you to handle multiple segmented responses from the server. Using the new [await foreach](https://docs.microsoft.com/dotnet/csharp/whats-new/csharp-8#asynchronous-streams) feature in C# 8, you can use a simple foreach loop instead.
+
+#!csharp
+
+await foreach (BlobItem blob in container.GetBlobsAsync())
+{
+    // Do something
+}
+
+#!markdown
+
+Within the loop, you have an instance of the [BlobItem](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.models.blobitem) class for ever blob in your container. You can use this instance to perform operations or get metadata about each blob. For example, you can use the [BlobItem.Name](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.models.blobitem.name) property to print the name of each blob:
+
+#!csharp
+
+await foreach (BlobItem blob in container.GetBlobsAsync())
+{
+    display(blob);
+}
+
+#!markdown
+
+## Downloading a Blob from the Container
+
+Manipulating blobs in a container can be done in many ways, but we will try to keep things simple by using streams in C#.
+
+To download a blob from the container, we can start by using the [GetBlobClient](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobcontainerclient.getblobclient) method of the BlobContainerClient class to reference an existing blob named *header.png* and store that reference in a variable of type [BlobClient](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobclient):
+
+#!csharp
+
+BlobClient bannerBlob = container.GetBlobClient("header.png");
+
+#!markdown
+
+Next, we need to prepare a destination to download the file. We can use the built-in [System.IO.File.Create](https://docs.microsoft.com/dotnet/api/system.io.file.create) static method to create a new file named *banner.png*, open a modifiable stream to the newly created file, and dispose of the stream properly once we are done:
+
+#!csharp
+
+using System.IO;
+
+FileStream downStream = File.Create("banner.png");
+
+#!markdown
+
+Now that we have a blob client and a stream, we can use the [DownloadToAsync](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.specialized.blobbaseclient.downloadtoasync) method of the BlobClient class to download the contents of the blob and write the content to the stream that we pass in as a parameter:
+
+#!csharp
+
+await bannerBlob.DownloadToAsync(downStream);
+
+#!markdown
+
+This effectively downloads the *header.png* blob, saves it to the *banner.png* local file, and then disposes of the in-memory objects.
+
+#!markdown
+
+## Uploading a Blob to the Container
+
+Uploading a blob is very similar to downloading a blob. The only major difference is the order in which we operate.
+
+First, we will use the [System.IO.File.OpenRead](https://docs.microsoft.com/dotnet/api/system.io.file.openread) static method to create a stream with the contents of the local *wallpaper.png* file:
+
+#!csharp
+
+FileStream upStream = File.OpenRead("wallpaper.jpg");
+
+#!markdown
+
+Now, we will again use the **GetBlobClient** method of the BlobContainerClient class to create a reference to a blob named *background.png* that doesn't exist yet:
+
+#!csharp
+
+BlobClient backgroundBlob = container.GetBlobClient("background.jpg");
+
+#!markdown
+
+Finally, we can use the [UploadAsync](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobclient.uploadasync) method of the BlobClient class to take the file contents in the stream and upload it to the blob that we referenced (even if it doesn't exist yet!).
+
+#!csharp
+
+await backgroundBlob.UploadAsync(upStream);
+
+#!markdown
+
+## Reviewing What We Did
+
+In these examples, we created a client that can connect to Azure Blob Storage, referenced a container, created the container if it did not exist already, listed all of the blobs in the container, downloaded a blob from the container, and then uploaded a new blob to the container.
+
+These examples are enough to get started managing an Azure Blob Storage account from .NET using the Azure SDK. You can always go to the [GitHub repo for the Azure SDK](https://github.com/Azure/azure-sdk-for-net/tree/master/sdk/storage/Azure.Storage.Blobs/samples) to view more examples of varying complexity.
