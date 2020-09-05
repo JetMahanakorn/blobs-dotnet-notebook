@@ -35,7 +35,6 @@ using Azure.Storage.Blobs.Models;
 
 Now that you are correctly referencing the SDK, you can create a new instances of the [BlobServiceClient](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobserviceclient) class and an Azure Blob Storage [connection string](https://docs.microsoft.com/azure/storage/common/storage-configure-connection-string) as the constructor's sole parameter:
 
-
 > If you are not sure of how to find your account's connection string, refer to the [Manage storage account access keys](https://docs.microsoft.com/azure/storage/common/storage-account-keys-manage) documentation page.
 
 #!csharp
